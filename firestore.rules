@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // كل مستخدم لديه صلاحية قراءة وكتابة منتجاته ومبيعاته الخاصة فقط
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // للسماح بالتجربة الأولية أو الزوار إن لم يكن المستخدم مسجلاً
+    match /users/{userId}/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
