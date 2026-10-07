@@ -351,6 +351,22 @@ body {
 .card-stock-count .card-val { color: var(--warning-color); }
 .icon-stock { background: var(--warning-light); color: var(--warning-color); }
 
+.card-debt-unpaid { border-right: 5px solid var(--danger-color); }
+.card-debt-unpaid .card-val { color: var(--danger-color); }
+.icon-debt-unpaid { background: var(--danger-light); color: var(--danger-color); }
+
+.card-debt-paid { border-right: 5px solid var(--success-color); }
+.card-debt-paid .card-val { color: var(--success-color); }
+.icon-debt-paid { background: var(--success-light); color: var(--success-color); }
+
+.card-debt-active { border-right: 5px solid var(--warning-color); }
+.card-debt-active .card-val { color: var(--warning-color); }
+.icon-debt-active { background: var(--warning-light); color: var(--warning-color); }
+
+.card-debt-settled { border-right: 5px solid var(--primary-color); }
+.card-debt-settled .card-val { color: var(--primary-color); }
+.icon-debt-settled { background: var(--primary-light); color: var(--primary-color); }
+
 .sub-label {
   font-size: 0.75rem;
   color: var(--text-muted);

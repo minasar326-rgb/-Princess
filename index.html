@@ -123,6 +123,16 @@
         </svg>
         التقارير الأسبوعية والشهرية
       </button>
+
+      <button class="tab-btn" data-tab="tab-debts">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        الشكك وديون العملاء
+      </button>
     </nav>
 
     <!-- 1. تبويب لوحة التحكم (Dashboard) -->
@@ -340,7 +350,9 @@
           <thead>
             <tr>
               <th>اسم المنتج</th>
-              <th>السعر (جنيه)</th>
+              <th>سعر الجملة (التكلفة)</th>
+              <th>سعر البيع (للعميل)</th>
+              <th>الربح / قطعة</th>
               <th>الكمية بالمخزون</th>
               <th>حد التنبيه الأدنى</th>
               <th>حالة المخزون</th>
@@ -566,6 +578,111 @@
       </div>
     </section>
 
+    <!-- 6. تبويب الشكك وديون العملاء -->
+    <section class="tab-content" id="tab-debts">
+      <!-- كروت إحصائيات الديون -->
+      <div class="summary-cards">
+        <div class="card card-debt-unpaid">
+          <div class="card-info">
+            <span class="card-label">إجمالي الديون المتبقية</span>
+            <div class="card-val" id="debtsTotalRemaining">0.00</div>
+            <span class="currency-tag">جنيه</span>
+          </div>
+          <div class="card-icon icon-debt-unpaid">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-debt-paid">
+          <div class="card-info">
+            <span class="card-label">إجمالي المبالغ المسددة</span>
+            <div class="card-val" id="debtsTotalCollected">0.00</div>
+            <span class="currency-tag">جنيه</span>
+          </div>
+          <div class="card-icon icon-debt-paid">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-debt-active">
+          <div class="card-info">
+            <span class="card-label">عملاء عليهم مبالغ</span>
+            <div class="card-val" id="debtsActiveCount">0</div>
+            <span class="currency-tag">عميل</span>
+          </div>
+          <div class="card-icon icon-debt-active">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-debt-settled">
+          <div class="card-info">
+            <span class="card-label">حسابات مسددة بالكامل</span>
+            <div class="card-val" id="debtsSettledCount">0</div>
+            <span class="currency-tag">حساب مسدد</span>
+          </div>
+          <div class="card-icon icon-debt-settled">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- شريط البحث والتصفية والأزرار -->
+      <div class="section-top-bar">
+        <div class="search-filter-wrap">
+          <input type="text" id="debtsSearchInput" class="form-control" placeholder="🔍 بحث باسم العميل أو رقم الهاتف...">
+          <select id="debtsStatusFilter" class="form-control" style="max-width: 170px;">
+            <option value="all">كل الحسابات</option>
+            <option value="active">عليه مبلغ فقط</option>
+            <option value="paid">مسدد بالكامل</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="openAddDebtModalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          تسجيل شكك جديد
+        </button>
+      </div>
+
+      <!-- جدول سجل ديون وشكك العملاء -->
+      <div class="table-responsive">
+        <table class="data-table" id="debtsTable">
+          <thead>
+            <tr>
+              <th>اسم العميل</th>
+              <th>رقم الهاتف</th>
+              <th>المنتجات والكمية</th>
+              <th>إجمالي الحساب</th>
+              <th>المدفوع</th>
+              <th>المتبقي</th>
+              <th>آخر دفعة</th>
+              <th>الحالة</th>
+              <th style="width: 180px;">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="debtsTableBody"></tbody>
+        </table>
+        <div class="empty-state" id="debtsEmptyState" style="display: none; padding: 36px; text-align: center; color: var(--text-muted);">
+          <p>لا توجد سجلات شكك أو ديون مسجلة مطابقة للبحث</p>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <!-- مودال إضافة / تعديل منتج -->
@@ -580,27 +697,39 @@
         <div class="modal-body">
           <div class="form-group">
             <label class="required-lbl">اسم المنتج:</label>
-            <input type="text" id="prodFormName" class="form-control" placeholder="مثال: مياه معدنية، عصير مانجو..." required>
+            <input type="text" id="prodFormName" class="form-control" placeholder="مثال: مياه معدنية، عصير مانجو..." required autocomplete="off">
+            <div id="duplicateProductAlert" class="alert alert-warning" style="display: none; margin-top: 8px; padding: 8px 12px; font-size: 0.85rem;"></div>
           </div>
           <div class="form-row">
             <div class="form-group col">
-              <label class="required-lbl">السعر (جنيه):</label>
-              <input type="number" id="prodFormPrice" class="form-control" placeholder="0.00" step="any" min="0.01" required>
+              <label>سعر الجملة (التكلفة):</label>
+              <input type="number" id="prodFormCostPrice" class="form-control" placeholder="0.00" step="any" min="0" value="0">
+              <small class="text-muted">تكلفة شراء القطعة لحساب الأرباح</small>
             </div>
+            <div class="form-group col">
+              <label class="required-lbl">سعر البيع (للعميل):</label>
+              <input type="number" id="prodFormPrice" class="form-control" placeholder="0.00" step="any" min="0.01" required>
+              <small class="text-muted">السعر الذي يتم البيع به في الكاشير</small>
+            </div>
+          </div>
+          <div class="form-row">
             <div class="form-group col">
               <label class="required-lbl">الكمية بالمخزون (عدد القطع):</label>
               <input type="number" id="prodFormStock" class="form-control" placeholder="0" min="0" required>
             </div>
+            <div class="form-group col">
+              <label>الحد الأدنى للمخزون (لتنبيه انخفاض الكمية):</label>
+              <input type="number" id="prodFormMinStock" class="form-control" placeholder="مثلاً: 3" min="1" value="3">
+            </div>
           </div>
-          <div class="form-group">
-            <label>الحد الأدنى للمخزون (لتنبيه انخفاض الكمية):</label>
-            <input type="number" id="prodFormMinStock" class="form-control" placeholder="مثلاً: 3" min="1" value="3">
-            <small class="text-muted">سيظهر تنبيه عندما تصل كمية هذا المنتج إلى هذا الحد أو أقل.</small>
+          <div id="profitPreviewBadge" style="background: var(--success-light); color: var(--success-color); border: 1px dashed var(--success-color); padding: 8px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 12px; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>الربح في القطعة:</span>
+            <span id="profitPreviewVal" style="font-size: 1.05rem;">0.00 جنيه</span>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-close="modalProduct">إلغاء</button>
-          <button type="submit" class="btn btn-success" id="saveProductSubmitBtn">حفظ في السحابة</button>
+          <button type="submit" class="btn btn-success" id="saveProductSubmitBtn">حفظ المنتج</button>
         </div>
       </form>
     </div>
@@ -680,6 +809,200 @@
             <rect x="6" y="14" width="12" height="8"></rect>
           </svg>
           طباعة الفاتورة اليومية الموحدة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- مودال تسجيل شكك جديد -->
+  <div class="modal" id="modalAddDebt">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>تسجيل شكك / حساب عميل جديد</h3>
+        <button class="close-modal-btn" data-close="modalAddDebt">&times;</button>
+      </div>
+      <form id="addDebtForm">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="required-lbl">اسم العميل:</label>
+              <input type="text" id="debtFormName" class="form-control" placeholder="اسم العميل الكامل..." required autocomplete="off">
+            </div>
+            <div class="form-group col">
+              <label>رقم الهاتف (إن وجد):</label>
+              <input type="tel" id="debtFormPhone" class="form-control" placeholder="مثال: 010xxxxxxxx" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="required-lbl">المنتجات التي أخذها:</label>
+            <input type="text" id="debtFormItems" class="form-control" placeholder="مثال: 2 كيس مسحوق + 3 صابون..." required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label>الكمية / عدد القطع:</label>
+              <input type="text" id="debtFormQuantity" class="form-control" placeholder="مثال: 5 قطع أو كرتونة">
+            </div>
+            <div class="form-group col">
+              <label>التاريخ:</label>
+              <input type="date" id="debtFormDate" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="required-lbl">إجمالي الحساب (جنيه):</label>
+              <input type="number" id="debtFormTotal" class="form-control" placeholder="0.00" step="any" min="0.01" required>
+            </div>
+            <div class="form-group col">
+              <label>المبلغ المدفوع وقتها (جنيه):</label>
+              <input type="number" id="debtFormPaid" class="form-control" placeholder="0.00" step="any" min="0" value="0">
+            </div>
+          </div>
+
+          <!-- عرض المبلغ المتبقي تلقائياً -->
+          <div style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 700;">المبلغ المتبقي على العميل:</span>
+            <strong id="debtFormRemainingPreview" style="font-size: 1.25rem; color: var(--danger-color);">0.00 جنيه</strong>
+          </div>
+
+          <div class="form-group">
+            <label>ملاحظات:</label>
+            <textarea id="debtFormNotes" class="form-control" rows="2" placeholder="أي ملاحظات إضافية بخصوص الحساب..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalAddDebt">إلغاء</button>
+          <button type="submit" class="btn btn-primary" id="saveDebtSubmitBtn">حفظ الشكك</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- مودال إضافة دفعة (سداد جزئي) -->
+  <div class="modal" id="modalAddPayment">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>إضافة دفعة وسداد جزء من الدين</h3>
+        <button class="close-modal-btn" data-close="modalAddPayment">&times;</button>
+      </div>
+      <form id="addPaymentForm">
+        <input type="hidden" id="payDebtId">
+        <div class="modal-body">
+          <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 4px;" id="payCustomerNameDisplay">--</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span>المبلغ المتبقي الحالي:</span>
+              <strong id="payCurrentRemainingDisplay" style="color: var(--danger-color); font-size: 1.15rem;">0.00 جنيه</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="required-lbl">المبلغ المدفوع الآن (جنيه):</label>
+            <input type="number" id="payAmountInput" class="form-control" placeholder="0.00" step="any" min="0.01" required autofocus>
+          </div>
+
+          <div class="form-group">
+            <label class="required-lbl">تاريخ الدفعة:</label>
+            <input type="date" id="payDateInput" class="form-control" required>
+          </div>
+
+          <!-- المعاينة اللحظية للمتبقي بعد الدفع -->
+          <div style="background: var(--success-light); color: var(--success-color); border: 1px dashed var(--success-color); padding: 10px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span>المتبقي بعد هذه الدفعة:</span>
+            <strong id="payRemainingAfterDisplay" style="font-size: 1.15rem;">0.00 جنيه</strong>
+          </div>
+
+          <div class="form-group">
+            <label>ملاحظات الدفعة (اختياري):</label>
+            <input type="text" id="payNoteInput" class="form-control" placeholder="مثال: نقداً، تحويل محفظة، الخ...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalAddPayment">إلغاء</button>
+          <button type="submit" class="btn btn-success" id="savePaymentSubmitBtn">تأكيد خصم الدفعة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- مودال تعديل أو تقليل الدين يدوياً -->
+  <div class="modal" id="modalEditDebt">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>تعديل حساب الدين أو تقليل المبلغ</h3>
+        <button class="close-modal-btn" data-close="modalEditDebt">&times;</button>
+      </div>
+      <form id="editDebtForm">
+        <input type="hidden" id="editDebtId">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="required-lbl">اسم العميل:</label>
+              <input type="text" id="editDebtName" class="form-control" required>
+            </div>
+            <div class="form-group col">
+              <label>رقم الهاتف:</label>
+              <input type="tel" id="editDebtPhone" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label>المنتجات المأخوذة:</label>
+              <input type="text" id="editDebtItems" class="form-control">
+            </div>
+            <div class="form-group col">
+              <label>الكمية:</label>
+              <input type="text" id="editDebtQuantity" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label class="required-lbl">إجمالي الحساب (جنيه):</label>
+              <input type="number" id="editDebtTotal" class="form-control" step="any" min="0.01" required>
+            </div>
+            <div class="form-group col">
+              <label class="required-lbl" style="color: var(--danger-color);">المبلغ المتبقي حالياً (جنيه):</label>
+              <input type="number" id="editDebtRemaining" class="form-control" step="any" min="0" required style="border-color: var(--danger-color); font-weight: 800;">
+              <small class="text-muted">يمكنك تعديله يدوياً لعمل خصم أو تصحيح خطأ.</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>ملاحظات:</label>
+            <textarea id="editDebtNotes" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalEditDebt">إلغاء</button>
+          <button type="submit" class="btn btn-primary" id="saveEditDebtBtn">حفظ التعديلات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- مودال كشف الحساب وسجل الدفعات للعميل -->
+  <div class="modal" id="modalDebtDetails">
+    <div class="modal-dialog" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>كشف حساب وسجل دفعات العميل</h3>
+        <button class="close-modal-btn" data-close="modalDebtDetails">&times;</button>
+      </div>
+      <div class="modal-body" id="debtDetailsModalBody">
+        <!-- يتم تعبئة التفاصيل ديناميكياً -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="modalDebtDetails">إغلاق</button>
+        <button type="button" class="btn btn-primary" id="debtDetailsPrintBtn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          طباعة كشف الحساب
         </button>
       </div>
     </div>

@@ -6,10 +6,12 @@
 const APP_STATE = {
   products: [],
   sales: [],
+  debts: [],
   cart: [],
   activeTab: 'tab-dashboard',
   unsubscribeProducts: null,
-  unsubscribeSales: null
+  unsubscribeSales: null,
+  unsubscribeDebts: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,6 +60,22 @@ function initCloudAndData() {
       }, (err) => {
         console.error('Cloud sales sync error:', err);
       });
+
+    // 3. مزامنة سجل الشكك وديون العملاء لحظياً من السحابة
+    APP_STATE.unsubscribeDebts = db.collection('debts')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot((snapshot) => {
+        const debts = [];
+        snapshot.forEach(doc => {
+          debts.push({ id: doc.id, ...doc.data() });
+        });
+        APP_STATE.debts = debts;
+        saveLocalBackup('debts', debts);
+        renderDebtsTable();
+        updateDebtsStats();
+      }, (err) => {
+        console.error('Cloud debts sync error:', err);
+      });
   } else {
     refreshAllUI();
   }
@@ -70,11 +88,11 @@ function loadLocalBackup() {
   } else {
     // منتجات أولية ترحيبية للمتجر
     APP_STATE.products = [
-      { id: 'p1', name: 'مياه معدنية صغيرة', price: 10, stock: 24, minStock: 5 },
-      { id: 'p2', name: 'عصير مانجو فريش', price: 35, stock: 4, minStock: 5 },
-      { id: 'p3', name: 'شاي أحمر فاخر', price: 15, stock: 18, minStock: 3 },
-      { id: 'p4', name: 'قهوة تركي مخصوص', price: 25, stock: 2, minStock: 4 },
-      { id: 'p5', name: 'ساندوتش دجاج مشوي', price: 65, stock: 0, minStock: 3 }
+      { id: 'p1', name: 'مياه معدنية صغيرة', costPrice: 7, price: 10, stock: 24, minStock: 5 },
+      { id: 'p2', name: 'عصير مانجو فريش', costPrice: 25, price: 35, stock: 4, minStock: 5 },
+      { id: 'p3', name: 'شاي أحمر فاخر', costPrice: 10, price: 15, stock: 18, minStock: 3 },
+      { id: 'p4', name: 'قهوة تركي مخصوص', costPrice: 18, price: 25, stock: 2, minStock: 4 },
+      { id: 'p5', name: 'ساندوتش دجاج مشوي', costPrice: 45, price: 65, stock: 0, minStock: 3 }
     ];
     saveLocalBackup('products', APP_STATE.products);
   }
@@ -82,6 +100,11 @@ function loadLocalBackup() {
   const savedSales = localStorage.getItem('princess_sales');
   if (savedSales) {
     try { APP_STATE.sales = JSON.parse(savedSales); } catch (e) {}
+  }
+
+  const savedDebts = localStorage.getItem('princess_debts');
+  if (savedDebts) {
+    try { APP_STATE.debts = JSON.parse(savedDebts); } catch (e) {}
   }
 }
 
@@ -99,6 +122,8 @@ function refreshAllUI() {
   renderDailyConsolidatedReport();
   renderAdvancedReports();
   checkStockAlerts();
+  renderDebtsTable();
+  updateDebtsStats();
 }
 
 function formatMoney(num) {
@@ -499,10 +524,16 @@ function renderProductsTable() {
       if (isOut) badgeHtml = '<span class="badge-stock badge-stock-out">خلص / غير متوفر</span>';
       else if (isLow) badgeHtml = `<span class="badge-stock badge-stock-low">المخزون منخفض (متبقي ${stock})</span>`;
 
+      const costPrice = p.costPrice !== undefined ? Number(p.costPrice) : 0;
+      const price = Number(p.price) || 0;
+      const profit = price - costPrice;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><strong>${escapeHtml(p.name)}</strong></td>
-        <td><strong>${formatMoney(p.price)}</strong></td>
+        <td>${costPrice > 0 ? formatMoney(costPrice) : '<span style="color:var(--text-muted)">0.00</span>'}</td>
+        <td><strong>${formatMoney(price)}</strong></td>
+        <td><strong style="color:${profit >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-size:0.95rem;">${formatMoney(profit)} جنيه</strong></td>
         <td style="font-weight:800; font-size:1.05rem;">${stock}</td>
         <td>${min}</td>
         <td>${badgeHtml}</td>
@@ -521,11 +552,76 @@ function renderProductsTable() {
   }
 }
 
+function updateProfitPreview() {
+  const cost = parseFloat(document.getElementById('prodFormCostPrice').value) || 0;
+  const sell = parseFloat(document.getElementById('prodFormPrice').value) || 0;
+  const profit = sell - cost;
+  const preview = document.getElementById('profitPreviewVal');
+  if (preview) {
+    preview.textContent = `${formatMoney(profit)} جنيه`;
+    preview.style.color = profit >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+  }
+}
+
+function normalizeProductName(str) {
+  return (str || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ');
+}
+
+function checkDuplicateProductName() {
+  const nameInput = document.getElementById('prodFormName');
+  const alertBox = document.getElementById('duplicateProductAlert');
+  const submitBtn = document.getElementById('saveProductSubmitBtn');
+  const currentId = document.getElementById('formProductId').value;
+
+  const rawName = nameInput.value.trim();
+  const normalized = normalizeProductName(rawName);
+
+  if (!normalized) {
+    alertBox.style.display = 'none';
+    nameInput.style.borderColor = 'var(--border-color)';
+    submitBtn.disabled = false;
+    return;
+  }
+
+  const duplicate = APP_STATE.products.find(p => {
+    if (currentId && p.id === currentId) return false;
+    return normalizeProductName(p.name) === normalized;
+  });
+
+  if (duplicate) {
+    alertBox.style.display = 'block';
+    alertBox.innerHTML = `⚠️ <strong>تنبيه:</strong> المنتج "<strong>${escapeHtml(duplicate.name)}</strong>" مسجل بالفعل في المخزون!<br>المتبقي منه: <strong>${duplicate.stock} قطعة</strong> بسعر بيع <strong>${formatMoney(duplicate.price)} جنيه</strong>.<br><span style="color:var(--danger-color); font-size:0.8rem;">لا يمكن تكرار نفس اسم المنتج. يمكنك تعديل كميته وسعره بدلاً من إضافته مرة أخرى.</span>`;
+    nameInput.style.borderColor = 'var(--danger-color)';
+    submitBtn.disabled = true;
+  } else {
+    alertBox.style.display = 'none';
+    nameInput.style.borderColor = 'var(--border-color)';
+    submitBtn.disabled = false;
+  }
+}
+
 function openAddProductModal() {
   document.getElementById('productForm').reset();
   document.getElementById('formProductId').value = '';
   document.getElementById('modalProductTitle').textContent = 'إضافة منتج جديد';
+  document.getElementById('prodFormCostPrice').value = '0';
+  document.getElementById('prodFormPrice').value = '';
+  document.getElementById('prodFormStock').value = '';
   document.getElementById('prodFormMinStock').value = '3';
+  updateProfitPreview();
+  
+  const alertBox = document.getElementById('duplicateProductAlert');
+  if (alertBox) alertBox.style.display = 'none';
+  const nameInput = document.getElementById('prodFormName');
+  if (nameInput) nameInput.style.borderColor = 'var(--border-color)';
+  document.getElementById('saveProductSubmitBtn').disabled = false;
+
   openModal('modalProduct');
 }
 
@@ -535,10 +631,19 @@ window.openEditProductModal = function(id) {
 
   document.getElementById('formProductId').value = p.id;
   document.getElementById('prodFormName').value = p.name;
+  document.getElementById('prodFormCostPrice').value = p.costPrice !== undefined ? p.costPrice : 0;
   document.getElementById('prodFormPrice').value = p.price;
   document.getElementById('prodFormStock').value = p.stock;
   document.getElementById('prodFormMinStock').value = p.minStock || 3;
   document.getElementById('modalProductTitle').textContent = 'تعديل بيانات المنتج';
+  updateProfitPreview();
+
+  const alertBox = document.getElementById('duplicateProductAlert');
+  if (alertBox) alertBox.style.display = 'none';
+  const nameInput = document.getElementById('prodFormName');
+  if (nameInput) nameInput.style.borderColor = 'var(--border-color)';
+  document.getElementById('saveProductSubmitBtn').disabled = false;
+
   openModal('modalProduct');
 };
 
@@ -546,11 +651,25 @@ async function saveProductForm(e) {
   e.preventDefault();
   const id = document.getElementById('formProductId').value;
   const name = document.getElementById('prodFormName').value.trim();
+  const costPrice = parseFloat(document.getElementById('prodFormCostPrice').value) || 0;
   const price = parseFloat(document.getElementById('prodFormPrice').value);
   const stock = parseInt(document.getElementById('prodFormStock').value);
   const minStock = parseInt(document.getElementById('prodFormMinStock').value) || 3;
 
   if (!name || isNaN(price) || isNaN(stock)) return;
+
+  // التحقق الحاسم من عدم تكرار اسم المنتج
+  const normalized = normalizeProductName(name);
+  const duplicate = APP_STATE.products.find(p => {
+    if (id && p.id === id) return false;
+    return normalizeProductName(p.name) === normalized;
+  });
+
+  if (duplicate) {
+    alert(`⚠️ لا يمكن تكرار اسم المنتج!\n\nالمنتج "${duplicate.name}" مسجل بالفعل في المخزون (المتبقي: ${duplicate.stock} قطعة).\n\nالنظام يمنع تكرار أي صنف بنفس الاسم، يمكنك تعديل الصنف الموجود بدلاً من إضافته مرة أخرى.`);
+    document.getElementById('prodFormName').focus();
+    return;
+  }
 
   const btn = document.getElementById('saveProductSubmitBtn');
   btn.disabled = true;
@@ -562,13 +681,13 @@ async function saveProductForm(e) {
 
       if (id) {
         await col.doc(id).update({
-          name, price, stock, minStock,
+          name, costPrice, price, stock, minStock,
           updatedAt: new Date().toISOString()
         });
         showToast('✅ تم تحديث المنتج بنجاح');
       } else {
         await col.add({
-          name, price, stock, minStock,
+          name, costPrice, price, stock, minStock,
           createdAt: new Date().toISOString()
         });
         showToast('✅ تمت إضافة المنتج بنجاح');
@@ -576,9 +695,9 @@ async function saveProductForm(e) {
     } else {
       if (id) {
         const idx = APP_STATE.products.findIndex(p => p.id === id);
-        if (idx !== -1) APP_STATE.products[idx] = { id, name, price, stock, minStock };
+        if (idx !== -1) APP_STATE.products[idx] = { id, name, costPrice, price, stock, minStock };
       } else {
-        APP_STATE.products.push({ id: 'p_' + Date.now(), name, price, stock, minStock });
+        APP_STATE.products.push({ id: 'p_' + Date.now(), name, costPrice, price, stock, minStock });
       }
       saveLocalBackup('products', APP_STATE.products);
       refreshAllUI();
@@ -1003,6 +1122,518 @@ function checkStockAlerts() {
 }
 
 // =======================================================
+// 6. إدارة الشكك وديون العملاء
+// =======================================================
+function updateDebtsStats() {
+  const debts = APP_STATE.debts || [];
+  let totalRemaining = 0;
+  let totalCollected = 0;
+  let activeCount = 0;
+  let settledCount = 0;
+
+  debts.forEach(d => {
+    const rem = Number(d.remainingAmount) || 0;
+    const paid = Number(d.paidAmount) || 0;
+    if (rem > 0) {
+      totalRemaining += rem;
+      activeCount++;
+    } else {
+      settledCount++;
+    }
+    totalCollected += paid;
+  });
+
+  const elRem = document.getElementById('debtsTotalRemaining');
+  const elCol = document.getElementById('debtsTotalCollected');
+  const elAct = document.getElementById('debtsActiveCount');
+  const elSet = document.getElementById('debtsSettledCount');
+
+  if (elRem) elRem.textContent = formatMoney(totalRemaining);
+  if (elCol) elCol.textContent = formatMoney(totalCollected);
+  if (elAct) elAct.textContent = activeCount;
+  if (elSet) elSet.textContent = settledCount;
+}
+
+function renderDebtsTable() {
+  const tbody = document.getElementById('debtsTableBody');
+  const empty = document.getElementById('debtsEmptyState');
+  if (!tbody) return;
+
+  const searchInput = document.getElementById('debtsSearchInput');
+  const search = searchInput ? (searchInput.value || '').trim().toLowerCase() : '';
+  const filterSelect = document.getElementById('debtsStatusFilter');
+  const filter = filterSelect ? filterSelect.value : 'all';
+
+  tbody.innerHTML = '';
+  const debts = APP_STATE.debts || [];
+
+  const filtered = debts.filter(d => {
+    const rem = Number(d.remainingAmount) || 0;
+    const isSettled = rem <= 0;
+
+    if (filter === 'active' && isSettled) return false;
+    if (filter === 'paid' && !isSettled) return false;
+
+    if (search) {
+      const name = (d.customerName || '').toLowerCase();
+      const phone = (d.phone || '').toLowerCase();
+      if (!name.includes(search) && !phone.includes(search)) return false;
+    }
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    if (empty) empty.style.display = 'block';
+  } else {
+    if (empty) empty.style.display = 'none';
+
+    filtered.forEach(d => {
+      const total = Number(d.totalAmount) || 0;
+      const paid = Number(d.paidAmount) || 0;
+      const rem = Number(d.remainingAmount) || 0;
+      const isSettled = rem <= 0;
+
+      // حساب آخر دفعة
+      let lastPayText = '—';
+      if (Array.isArray(d.payments) && d.payments.length > 0) {
+        const lastP = d.payments[d.payments.length - 1];
+        lastPayText = `${formatMoney(lastP.amount)} ج (${formatDateShort(lastP.date)})`;
+      } else if (paid > 0) {
+        lastPayText = `${formatMoney(paid)} ج (عند التسجيل)`;
+      }
+
+      let statusBadge = '';
+      if (isSettled) {
+        statusBadge = '<span class="badge-stock badge-stock-available" style="font-weight:800;">مسدد بالكامل ✅</span>';
+      } else {
+        statusBadge = `<span class="badge-stock badge-stock-out" style="font-weight:800;">عليه ${formatMoney(rem)} جنيه</span>`;
+      }
+
+      const itemsDesc = escapeHtml(d.items || '—') + (d.quantity ? ` <small class="text-muted">(${escapeHtml(d.quantity)})</small>` : '');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(d.customerName || '—')}</strong></td>
+        <td>${d.phone ? `<a href="tel:${escapeHtml(d.phone)}" style="color:var(--primary-color); text-decoration:none; font-weight:700;">${escapeHtml(d.phone)}</a>` : '<span class="text-muted">—</span>'}</td>
+        <td style="max-width:220px; word-break:break-word;">${itemsDesc}</td>
+        <td><strong>${formatMoney(total)}</strong></td>
+        <td style="color:var(--success-color); font-weight:700;">${formatMoney(paid)}</td>
+        <td style="color:${isSettled ? 'var(--text-muted)' : 'var(--danger-color)'}; font-weight:900; font-size:1.05rem;">${formatMoney(rem)}</td>
+        <td style="font-size:0.82rem;">${lastPayText}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <div style="display:flex; gap:4px; align-items:center;">
+            ${!isSettled ? `
+              <button class="btn btn-sm btn-success" onclick="openAddPaymentModal('${d.id}')" title="إضافة دفعة وسداد جزء">
+                + دفعة
+              </button>
+            ` : `
+              <button class="btn btn-sm btn-secondary" onclick="openAddPaymentModal('${d.id}')" title="إضافة دفعة إضافية" style="opacity:0.6;">
+                + دفعة
+              </button>
+            `}
+            <button class="action-mini-btn" onclick="openDebtDetailsModal('${d.id}')" title="كشف حساب وسجل الدفعات">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+            <button class="action-mini-btn" onclick="openEditDebtModal('${d.id}')" title="تعديل أو تقليل الدين">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+            <button class="action-mini-btn btn-delete" onclick="deleteDebt('${d.id}')" title="حذف السجل">&times;</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function formatDateShort(isoStr) {
+  if (!isoStr) return '--';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${m}/${day}`;
+}
+
+function calcNewDebtRemaining() {
+  const total = parseFloat(document.getElementById('debtFormTotal').value) || 0;
+  const paid = parseFloat(document.getElementById('debtFormPaid').value) || 0;
+  const rem = Math.max(0, total - paid);
+  const preview = document.getElementById('debtFormRemainingPreview');
+  if (preview) {
+    preview.textContent = `${formatMoney(rem)} جنيه`;
+    preview.style.color = rem > 0 ? 'var(--danger-color)' : 'var(--success-color)';
+  }
+}
+
+function openAddDebtModal() {
+  document.getElementById('addDebtForm').reset();
+  document.getElementById('debtFormDate').value = getTodayDateString();
+  document.getElementById('debtFormPaid').value = '0';
+  calcNewDebtRemaining();
+  openModal('modalAddDebt');
+}
+
+async function saveNewDebt(e) {
+  e.preventDefault();
+  const customerName = document.getElementById('debtFormName').value.trim();
+  const phone = document.getElementById('debtFormPhone').value.trim();
+  const items = document.getElementById('debtFormItems').value.trim();
+  const quantity = document.getElementById('debtFormQuantity').value.trim();
+  const totalAmount = parseFloat(document.getElementById('debtFormTotal').value) || 0;
+  const paidAmount = parseFloat(document.getElementById('debtFormPaid').value) || 0;
+  const remainingAmount = Math.max(0, totalAmount - paidAmount);
+  const date = document.getElementById('debtFormDate').value || getTodayDateString();
+  const notes = document.getElementById('debtFormNotes').value.trim();
+
+  if (!customerName || totalAmount <= 0) return;
+
+  const status = remainingAmount <= 0 ? 'paid' : 'active';
+  const payments = [];
+  if (paidAmount > 0) {
+    payments.push({
+      id: 'pay_' + Date.now(),
+      amount: paidAmount,
+      date: new Date().toISOString(),
+      note: 'دفعة أولى عند أخذ البضاعة'
+    });
+  }
+
+  const newDoc = {
+    customerName,
+    phone,
+    items,
+    quantity,
+    totalAmount,
+    paidAmount,
+    remainingAmount,
+    status,
+    date,
+    notes,
+    payments,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('saveDebtSubmitBtn');
+  btn.disabled = true;
+
+  try {
+    if (window.firebaseService && window.firebaseService.isConnected()) {
+      const db = window.firebaseService.db;
+      await db.collection('debts').add(newDoc);
+      showToast('✅ تم تسجيل شكك العميل في Firebase بنجاح');
+    } else {
+      newDoc.id = 'debt_' + Date.now();
+      APP_STATE.debts.unshift(newDoc);
+      saveLocalBackup('debts', APP_STATE.debts);
+      renderDebtsTable();
+      updateDebtsStats();
+      showToast('تم تسجيل شكك العميل بنجاح');
+    }
+    closeModal('modalAddDebt');
+  } catch (err) {
+    console.error('Error saving debt:', err);
+    alert('حدث خطأ أثناء حفظ الشكك: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// -------------------------------------------------------
+// الدفع الجزئي (إضافة دفعة)
+// -------------------------------------------------------
+window.openAddPaymentModal = function(id) {
+  const d = APP_STATE.debts.find(item => item.id === id);
+  if (!d) return;
+
+  document.getElementById('payDebtId').value = d.id;
+  document.getElementById('payCustomerNameDisplay').textContent = `العميل: ${d.customerName} ${d.phone ? `(${d.phone})` : ''}`;
+  document.getElementById('payCurrentRemainingDisplay').textContent = `${formatMoney(d.remainingAmount)} جنيه`;
+
+  const payInput = document.getElementById('payAmountInput');
+  payInput.value = '';
+  document.getElementById('payDateInput').value = getTodayDateString();
+  document.getElementById('payNoteInput').value = '';
+
+  calcPaymentRemainingAfter();
+  openModal('modalAddPayment');
+  setTimeout(() => payInput.focus(), 150);
+};
+
+function calcPaymentRemainingAfter() {
+  const debtId = document.getElementById('payDebtId').value;
+  const d = APP_STATE.debts.find(item => item.id === debtId);
+  const currentRem = d ? Number(d.remainingAmount) || 0 : 0;
+  const payVal = parseFloat(document.getElementById('payAmountInput').value) || 0;
+  const remAfter = Math.max(0, currentRem - payVal);
+
+  const preview = document.getElementById('payRemainingAfterDisplay');
+  if (preview) {
+    preview.textContent = `${formatMoney(remAfter)} جنيه`;
+    if (remAfter === 0) {
+      preview.textContent = '0.00 جنيه (سيكون الحساب مسدداً بالكامل! 🎉)';
+    }
+  }
+}
+
+async function savePayment(e) {
+  e.preventDefault();
+  const debtId = document.getElementById('payDebtId').value;
+  const d = APP_STATE.debts.find(item => item.id === debtId);
+  if (!d) return;
+
+  const amount = parseFloat(document.getElementById('payAmountInput').value);
+  const dateVal = document.getElementById('payDateInput').value || getTodayDateString();
+  const note = document.getElementById('payNoteInput').value.trim();
+
+  if (isNaN(amount) || amount <= 0) {
+    alert('يرجى إدخال مبلغ صحيح للدفعة');
+    return;
+  }
+
+  const currentRem = Number(d.remainingAmount) || 0;
+  const currentPaid = Number(d.paidAmount) || 0;
+  const newRemaining = Math.max(0, currentRem - amount);
+  const newPaid = currentPaid + amount;
+  const newStatus = newRemaining <= 0 ? 'paid' : 'active';
+
+  const newPaymentObj = {
+    id: 'pay_' + Date.now(),
+    amount: amount,
+    date: new Date(dateVal).toISOString(),
+    note: note || 'دفعة نقدية'
+  };
+
+  const updatedPayments = Array.isArray(d.payments) ? [...d.payments, newPaymentObj] : [newPaymentObj];
+
+  const btn = document.getElementById('savePaymentSubmitBtn');
+  btn.disabled = true;
+
+  try {
+    if (window.firebaseService && window.firebaseService.isConnected()) {
+      const db = window.firebaseService.db;
+      await db.collection('debts').doc(d.id).update({
+        paidAmount: newPaid,
+        remainingAmount: newRemaining,
+        status: newStatus,
+        payments: updatedPayments,
+        updatedAt: new Date().toISOString()
+      });
+      showToast(newRemaining <= 0 ? '🎉 تم تسديد الحساب بالكامل بنجاح!' : '✅ تم خصم الدفعة وتحديث المتبقي');
+    } else {
+      d.paidAmount = newPaid;
+      d.remainingAmount = newRemaining;
+      d.status = newStatus;
+      d.payments = updatedPayments;
+      d.updatedAt = new Date().toISOString();
+      saveLocalBackup('debts', APP_STATE.debts);
+      renderDebtsTable();
+      updateDebtsStats();
+      showToast('تم تسجيل الدفعة بنجاح');
+    }
+
+    closeModal('modalAddPayment');
+  } catch (err) {
+    console.error('Error saving payment:', err);
+    alert('حدث خطأ أثناء حفظ الدفعة: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// -------------------------------------------------------
+// تعديل أو تقليل الدين يدوياً
+// -------------------------------------------------------
+window.openEditDebtModal = function(id) {
+  const d = APP_STATE.debts.find(item => item.id === id);
+  if (!d) return;
+
+  document.getElementById('editDebtId').value = d.id;
+  document.getElementById('editDebtName').value = d.customerName || '';
+  document.getElementById('editDebtPhone').value = d.phone || '';
+  document.getElementById('editDebtItems').value = d.items || '';
+  document.getElementById('editDebtQuantity').value = d.quantity || '';
+  document.getElementById('editDebtTotal').value = d.totalAmount || 0;
+  document.getElementById('editDebtRemaining').value = d.remainingAmount !== undefined ? d.remainingAmount : 0;
+  document.getElementById('editDebtNotes').value = d.notes || '';
+
+  openModal('modalEditDebt');
+};
+
+async function saveEditDebt(e) {
+  e.preventDefault();
+  const id = document.getElementById('editDebtId').value;
+  const d = APP_STATE.debts.find(item => item.id === id);
+  if (!d) return;
+
+  const customerName = document.getElementById('editDebtName').value.trim();
+  const phone = document.getElementById('editDebtPhone').value.trim();
+  const items = document.getElementById('editDebtItems').value.trim();
+  const quantity = document.getElementById('editDebtQuantity').value.trim();
+  const totalAmount = parseFloat(document.getElementById('editDebtTotal').value) || 0;
+  const remainingAmount = parseFloat(document.getElementById('editDebtRemaining').value);
+  const notes = document.getElementById('editDebtNotes').value.trim();
+
+  if (!customerName || isNaN(remainingAmount)) return;
+
+  const status = remainingAmount <= 0 ? 'paid' : 'active';
+  const btn = document.getElementById('saveEditDebtBtn');
+  btn.disabled = true;
+
+  try {
+    if (window.firebaseService && window.firebaseService.isConnected()) {
+      const db = window.firebaseService.db;
+      await db.collection('debts').doc(id).update({
+        customerName,
+        phone,
+        items,
+        quantity,
+        totalAmount,
+        remainingAmount,
+        status,
+        notes,
+        updatedAt: new Date().toISOString()
+      });
+      showToast('✅ تم تحديث بيانات الدين بنجاح');
+    } else {
+      d.customerName = customerName;
+      d.phone = phone;
+      d.items = items;
+      d.quantity = quantity;
+      d.totalAmount = totalAmount;
+      d.remainingAmount = remainingAmount;
+      d.status = status;
+      d.notes = notes;
+      d.updatedAt = new Date().toISOString();
+      saveLocalBackup('debts', APP_STATE.debts);
+      renderDebtsTable();
+      updateDebtsStats();
+      showToast('تم تحديث بيانات الدين بنجاح');
+    }
+
+    closeModal('modalEditDebt');
+  } catch (err) {
+    console.error('Error updating debt:', err);
+    alert('حدث خطأ أثناء تحديث الدين: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// -------------------------------------------------------
+// عرض كشف الحساب وسجل الدفعات
+// -------------------------------------------------------
+window.openDebtDetailsModal = function(id) {
+  const d = APP_STATE.debts.find(item => item.id === id);
+  if (!d) return;
+
+  const container = document.getElementById('debtDetailsModalBody');
+  const isSettled = (Number(d.remainingAmount) || 0) <= 0;
+
+  let paymentsHtml = '';
+  if (Array.isArray(d.payments) && d.payments.length > 0) {
+    paymentsHtml = `
+      <table class="data-table" style="margin-top:10px;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>تاريخ الدفعة</th>
+            <th>مبلغ الدفعة</th>
+            <th>ملاحظات الدفعة</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.payments.map((p, idx) => `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>${formatDate(p.date)}</td>
+              <td><strong style="color:var(--success-color);">${formatMoney(p.amount)} جنيه</strong></td>
+              <td>${escapeHtml(p.note || '—')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } else {
+    paymentsHtml = '<p class="text-muted" style="text-align:center; padding:16px;">لم يتم تسجيل أي دفعات إضافية حتى الآن.</p>';
+  }
+
+  container.innerHTML = `
+    <div style="background:var(--bg-main); border:1px solid var(--border-color); border-radius:8px; padding:16px; margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h4 style="font-size:1.15rem; margin:0;">${escapeHtml(d.customerName)}</h4>
+        ${isSettled ? '<span class="badge-stock badge-stock-available" style="font-weight:800;">مسدد بالكامل ✅</span>' : `<span class="badge-stock badge-stock-out" style="font-weight:800;">عليه متبقي: ${formatMoney(d.remainingAmount)} جنيه</span>`}
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.9rem;">
+        <div><strong>الهاتف:</strong> ${d.phone ? escapeHtml(d.phone) : '—'}</div>
+        <div><strong>تاريخ الشكك:</strong> ${formatDate(d.date || d.createdAt)}</div>
+        <div style="grid-column: span 2;"><strong>المنتجات المأخوذة:</strong> ${escapeHtml(d.items || '—')} ${d.quantity ? `(${escapeHtml(d.quantity)})` : ''}</div>
+        ${d.notes ? `<div style="grid-column: span 2;"><strong>ملاحظات:</strong> ${escapeHtml(d.notes)}</div>` : ''}
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px; text-align:center;">
+      <div style="background:var(--bg-main); border:1px solid var(--border-color); padding:10px; border-radius:8px;">
+        <span class="text-muted" style="font-size:0.8rem; display:block;">إجمالي الحساب</span>
+        <strong style="font-size:1.1rem;">${formatMoney(d.totalAmount)} جنيه</strong>
+      </div>
+      <div style="background:var(--success-light); border:1px solid var(--success-color); padding:10px; border-radius:8px;">
+        <span style="font-size:0.8rem; display:block; color:var(--success-color);">المبلغ المدفوع</span>
+        <strong style="font-size:1.1rem; color:var(--success-color);">${formatMoney(d.paidAmount)} جنيه</strong>
+      </div>
+      <div style="background:var(--danger-light); border:1px solid var(--danger-color); padding:10px; border-radius:8px;">
+        <span style="font-size:0.8rem; display:block; color:var(--danger-color);">المبلغ المتبقي</span>
+        <strong style="font-size:1.1rem; color:var(--danger-color);">${formatMoney(d.remainingAmount)} جنيه</strong>
+      </div>
+    </div>
+
+    <h4 style="margin-bottom:8px;">سجل الدفعات المسددة:</h4>
+    <div class="table-responsive">
+      ${paymentsHtml}
+    </div>
+  `;
+
+  openModal('modalDebtDetails');
+};
+
+// -------------------------------------------------------
+// حذف سجل الدين مع رسالة تأكيد (Requirement 5)
+// -------------------------------------------------------
+window.deleteDebt = async function(id) {
+  const d = APP_STATE.debts.find(item => item.id === id);
+  if (!d) return;
+
+  const confirmMsg = `هل أنت متأكد من حذف سجل الشكك للعميل "${d.customerName}" بالكامل؟\n\n(المتبقي: ${formatMoney(d.remainingAmount)} جنيه)\n\nتنبيه: لا يمكن التراجع عن هذا الإجراء بعد الحذف.`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    if (window.firebaseService && window.firebaseService.isConnected()) {
+      const db = window.firebaseService.db;
+      await db.collection('debts').doc(id).delete();
+      showToast('✅ تم حذف سجل الشكك من Firebase بنجاح');
+    } else {
+      APP_STATE.debts = APP_STATE.debts.filter(item => item.id !== id);
+      saveLocalBackup('debts', APP_STATE.debts);
+      renderDebtsTable();
+      updateDebtsStats();
+      showToast('تم حذف سجل الشكك بنجاح');
+    }
+  } catch (err) {
+    console.error('Error deleting debt:', err);
+    alert('حدث خطأ أثناء حذف السجل: ' + err.message);
+  }
+};
+
+// =======================================================
 // التنقل والتبويبات
 // =======================================================
 function setupNavigation() {
@@ -1029,6 +1660,10 @@ window.switchTab = function(tabId) {
   if (tabId === 'tab-reports') renderAdvancedReports();
   if (tabId === 'tab-sales') renderSalesHistory();
   if (tabId === 'tab-products') renderProductsTable();
+  if (tabId === 'tab-debts') {
+    renderDebtsTable();
+    updateDebtsStats();
+  }
 };
 
 function setupEventListeners() {
@@ -1044,6 +1679,9 @@ function setupEventListeners() {
 
   // إدارة المنتجات
   document.getElementById('openAddProductModalBtn').addEventListener('click', openAddProductModal);
+  document.getElementById('prodFormName').addEventListener('input', checkDuplicateProductName);
+  document.getElementById('prodFormCostPrice').addEventListener('input', updateProfitPreview);
+  document.getElementById('prodFormPrice').addEventListener('input', updateProfitPreview);
   document.getElementById('productForm').addEventListener('submit', saveProductForm);
   document.getElementById('productsSearchInput').addEventListener('input', renderProductsTable);
   document.getElementById('productsStockFilter').addEventListener('change', renderProductsTable);
@@ -1064,6 +1702,37 @@ function setupEventListeners() {
   document.getElementById('advReportPeriodSelect').addEventListener('change', renderAdvancedReports);
   document.getElementById('applyAdvReportBtn').addEventListener('click', renderAdvancedReports);
   document.getElementById('printAdvReportBtn').addEventListener('click', () => window.print());
+
+  // الشكك وديون العملاء
+  const searchDebtsEl = document.getElementById('debtsSearchInput');
+  if (searchDebtsEl) searchDebtsEl.addEventListener('input', renderDebtsTable);
+
+  const filterDebtsEl = document.getElementById('debtsStatusFilter');
+  if (filterDebtsEl) filterDebtsEl.addEventListener('change', renderDebtsTable);
+
+  const openAddDebtBtn = document.getElementById('openAddDebtModalBtn');
+  if (openAddDebtBtn) openAddDebtBtn.addEventListener('click', openAddDebtModal);
+
+  const addDebtForm = document.getElementById('addDebtForm');
+  if (addDebtForm) addDebtForm.addEventListener('submit', saveNewDebt);
+
+  const debtTotalInput = document.getElementById('debtFormTotal');
+  if (debtTotalInput) debtTotalInput.addEventListener('input', calcNewDebtRemaining);
+
+  const debtPaidInput = document.getElementById('debtFormPaid');
+  if (debtPaidInput) debtPaidInput.addEventListener('input', calcNewDebtRemaining);
+
+  const addPaymentForm = document.getElementById('addPaymentForm');
+  if (addPaymentForm) addPaymentForm.addEventListener('submit', savePayment);
+
+  const payAmountInput = document.getElementById('payAmountInput');
+  if (payAmountInput) payAmountInput.addEventListener('input', calcPaymentRemainingAfter);
+
+  const editDebtForm = document.getElementById('editDebtForm');
+  if (editDebtForm) editDebtForm.addEventListener('submit', saveEditDebt);
+
+  const printDebtDetailsBtn = document.getElementById('debtDetailsPrintBtn');
+  if (printDebtDetailsBtn) printDebtDetailsBtn.addEventListener('click', () => window.print());
 
   // التنبيهات
   document.getElementById('alertsBellBtn').addEventListener('click', () => openModal('modalAlerts'));
