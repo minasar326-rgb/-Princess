@@ -102,7 +102,7 @@
           <line x1="16" y1="13" x2="8" y2="13"></line>
           <line x1="16" y1="17" x2="8" y2="17"></line>
         </svg>
-        سجل المبيعات
+        الفواتير والمبيعات
       </button>
 
       <button class="tab-btn" data-tab="tab-daily">
@@ -291,8 +291,49 @@
             </div>
           </div>
 
-          <!-- إجمالي العملية وزر إتمام البيع -->
+          <!-- إجمالي العملية وتفاصيل الفاتورة وزر إتمام البيع -->
           <div class="cart-checkout-box">
+            <!-- تفاصيل العميل وطريقة الدفع للفاتورة -->
+            <div class="cart-invoice-details-box" style="margin-bottom: 12px; background: var(--bg-card); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div class="form-row" style="margin-bottom: 8px;">
+                <div class="form-group col" style="margin-bottom: 0;">
+                  <label style="font-size: 0.78rem;">اسم العميل (اختياري / أو مسجل):</label>
+                  <input type="text" id="posCustomerName" class="form-control" list="posRegisteredCustomersList" placeholder="عميل نقدي (أو اكتب اسم العميل)..." style="padding: 6px 10px; font-size: 0.85rem;" autocomplete="off">
+                  <datalist id="posRegisteredCustomersList"></datalist>
+                </div>
+                <div class="form-group col" style="margin-bottom: 0;">
+                  <label style="font-size: 0.78rem;">رقم هاتف العميل:</label>
+                  <input type="tel" id="posCustomerPhone" class="form-control" placeholder="010xxxxxxxx" style="padding: 6px 10px; font-size: 0.85rem;" autocomplete="off">
+                </div>
+              </div>
+
+              <div class="form-row" style="margin-bottom: 8px;">
+                <div class="form-group col" style="margin-bottom: 0;">
+                  <label style="font-size: 0.78rem;">طريقة الدفع:</label>
+                  <select id="posPaymentMethod" class="form-control" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="cash">نقدي (كاش بالكامل)</option>
+                    <option value="electronic">إلكتروني (محفظة / فيزا)</option>
+                    <option value="partial">دفع جزئي (متبقي جزء)</option>
+                    <option value="credit">آجل / شكك (غير مدفوع)</option>
+                  </select>
+                </div>
+                <div class="form-group col" style="margin-bottom: 0;">
+                  <label style="font-size: 0.78rem;">المبلغ المدفوع (جنيه):</label>
+                  <input type="number" id="posPaidAmount" class="form-control" placeholder="0.00" step="any" min="0" style="padding: 6px 10px; font-size: 0.85rem;">
+                </div>
+              </div>
+
+              <!-- شريط تنبيه المتبقي التلقائي -->
+              <div id="posRemainingRow" style="display: none; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--warning-light); color: #92400e; font-size: 0.82rem; font-weight: 700; margin-bottom: 8px;">
+                <span>المتبقي على العميل (دين/شكك):</span>
+                <strong id="posRemainingVal" style="color: var(--danger-color); font-size: 0.95rem;">0.00 جنيه</strong>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" id="posInvoiceNotes" class="form-control" placeholder="ملاحظات اختيارية على الفاتورة..." style="padding: 6px 10px; font-size: 0.82rem;">
+              </div>
+            </div>
+
             <div class="checkout-total-row">
               <span>إجمالي المبلغ المطلوب:</span>
               <div class="big-total-display">
@@ -325,6 +366,66 @@
 
     <!-- 3. تبويب إدارة المنتجات والمخزون -->
     <section class="tab-content" id="tab-products">
+      <!-- كروت إحصائيات تقييم المخزون ورأس المال والأرباح المتوقعة -->
+      <div class="summary-cards" style="margin-bottom: 16px;">
+        <div class="card card-cost-val">
+          <div class="card-info">
+            <span class="card-label">إجمالي المخزون (بسعر الجملة)</span>
+            <div class="card-val" id="invCostTotal">0.00</div>
+            <span class="currency-tag">جنيه (رأس المال)</span>
+          </div>
+          <div class="card-icon icon-cost-val">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-retail-val">
+          <div class="card-info">
+            <span class="card-label">إجمالي المخزون (بسعر البيع)</span>
+            <div class="card-val" id="invRetailTotal">0.00</div>
+            <span class="currency-tag">جنيه (القيمة البيعية)</span>
+          </div>
+          <div class="card-icon icon-retail-val">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-profit-val">
+          <div class="card-info">
+            <span class="card-label">الربح المتوقع من المخزون</span>
+            <div class="card-val" id="invProfitExpected">0.00</div>
+            <span class="currency-tag">جنيه (صافي الأرباح)</span>
+          </div>
+          <div class="card-icon icon-profit-val">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card card-pieces-val">
+          <div class="card-info">
+            <span class="card-label">إجمالي القطع الموجودة بالمخزن</span>
+            <div class="card-val" id="invPiecesTotal">0</div>
+            <span class="currency-tag">قطعة متوفرة</span>
+          </div>
+          <div class="card-icon icon-pieces-val">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
       <div class="section-top-bar">
         <div class="search-filter-wrap">
           <input type="text" id="productsSearchInput" class="form-control" placeholder="🔍 بحث عن منتج...">
@@ -365,30 +466,61 @@
           <p>لا توجد منتجات مسجلة تطابق البحث</p>
         </div>
       </div>
+
+      <!-- ملخص واضح أسفل جدول المنتجات -->
+      <div class="inventory-table-footer-summary" id="invTableFooterSummary">
+        <div class="inv-footer-pill">
+          <span>عدد الأصناف:</span>
+          <strong id="invFooterProductsCount">0 صنف</strong>
+        </div>
+        <div class="inv-footer-pill">
+          <span>إجمالي القطع:</span>
+          <strong id="invFooterPiecesCount">0 قطعة</strong>
+        </div>
+        <div class="inv-footer-pill">
+          <span>إجمالي رأس المال (الجملة):</span>
+          <strong id="invFooterCostSum" style="color: var(--primary-color);">0.00 جنيه</strong>
+        </div>
+        <div class="inv-footer-pill">
+          <span>إجمالي القيمة البيعية:</span>
+          <strong id="invFooterRetailSum" style="color: var(--purple-color);">0.00 جنيه</strong>
+        </div>
+        <div class="inv-footer-pill">
+          <span>الربح الإجمالي المتوقع:</span>
+          <strong id="invFooterProfitSum" style="color: var(--success-color);">0.00 جنيه</strong>
+        </div>
+      </div>
     </section>
 
     <!-- 4. تبويب سجل المبيعات -->
     <section class="tab-content" id="tab-sales">
       <div class="section-top-bar">
         <div class="search-filter-wrap">
-          <select id="salesPeriodFilter" class="form-control" style="max-width: 180px;">
-            <option value="today">مبيعات اليوم</option>
-            <option value="week">مبيعات الأسبوع</option>
-            <option value="month" selected>مبيعات الشهر</option>
-            <option value="all">كل المبيعات</option>
+          <select id="salesPeriodFilter" class="form-control" style="max-width: 160px;">
+            <option value="today">فواتير اليوم</option>
+            <option value="week">فواتير الأسبوع</option>
+            <option value="month" selected>فواتير الشهر</option>
+            <option value="all">كل الفواتير</option>
           </select>
-          <input type="text" id="salesSearchInput" class="form-control" placeholder="🔍 بحث برقم البيع أو التاريخ...">
+          <select id="salesStatusFilter" class="form-control" style="max-width: 170px;">
+            <option value="all">كل حالات السداد</option>
+            <option value="paid">مدفوعة بالكامل</option>
+            <option value="partial">مدفوعة جزئياً</option>
+            <option value="unpaid">غير مدفوعة (آجل)</option>
+            <option value="refunded">فواتير مسترجعة</option>
+          </select>
+          <input type="text" id="salesSearchInput" class="form-control" placeholder="🔍 بحث باسم العميل أو رقم الفاتورة أو التاريخ...">
         </div>
       </div>
 
-      <!-- ملخص سجل المبيعات للفترة المختارة -->
+      <!-- ملخص سجل الفواتير والمبيعات للفترة المختارة -->
       <div class="report-summary-bar">
         <div class="summary-pill sales-pill">
           <span>إجمالي الإيرادات:</span>
           <strong id="salesTotalRevenue">0.00</strong> <span class="curr">جنيه</span>
         </div>
         <div class="summary-pill count-pill">
-          <span>عدد عمليات البيع:</span>
+          <span>عدد الفواتير:</span>
           <strong id="salesTotalOperations">0</strong>
         </div>
         <div class="summary-pill pieces-pill">
@@ -405,19 +537,21 @@
         <table class="data-table" id="salesTable">
           <thead>
             <tr>
-              <th>رقم البيع</th>
+              <th>رقم الفاتورة</th>
+              <th>اسم العميل</th>
               <th>التاريخ والوقت</th>
-              <th>المنتجات والكميات المباعة</th>
-              <th>عدد القطع</th>
-              <th>إجمالي المبلغ</th>
-              <th>الحالة</th>
-              <th style="width: 120px;">إجراء</th>
+              <th>المنتجات والقطع</th>
+              <th>إجمالي الفاتورة</th>
+              <th>المدفوع</th>
+              <th>المتبقي</th>
+              <th>حالة السداد</th>
+              <th style="width: 160px;">إجراءات</th>
             </tr>
           </thead>
           <tbody id="salesTableBody"></tbody>
         </table>
         <div class="empty-state" id="salesEmptyState" style="display: none;">
-          <p>لا توجد عمليات بيع مسجلة لهذه الفترة</p>
+          <p>لا توجد فواتير أو مبيعات مسجلة مطابقة للبحث</p>
         </div>
       </div>
     </section>
@@ -1005,6 +1139,137 @@
           طباعة كشف الحساب
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- مودال تفاصيل ومعاينة وطباعة فاتورة المبيعات للعميل -->
+  <div class="modal" id="modalInvoiceDetails">
+    <div class="modal-dialog modal-receipt-dialog" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>تفاصيل فاتورة البيع</h3>
+        <button class="close-modal-btn" data-close="modalInvoiceDetails">&times;</button>
+      </div>
+      <div class="modal-body receipt-wrapper">
+        <div class="thermal-receipt" id="customerInvoicePrintContent">
+          <div class="receipt-header">
+            <h2 id="invoicePrintShopTitle">Princess Store</h2>
+            <p>فاتورة مبيعات نقدية وآجلة</p>
+            <div class="receipt-divider">================================</div>
+            <div class="r-row"><span>رقم الفاتورة:</span> <strong id="invModalInvoiceNumber">--</strong></div>
+            <div class="r-row"><span>التاريخ والوقت:</span> <strong id="invModalDate">--</strong></div>
+            <div class="r-row"><span>العميل:</span> <strong id="invModalCustomer">عميل نقدي</strong></div>
+            <div class="r-row" id="invModalPhoneRow" style="display: none;"><span>رقم الهاتف:</span> <strong id="invModalPhone">--</strong></div>
+            <div class="r-row"><span>طريقة الدفع:</span> <strong id="invModalPayMethod">نقدي</strong></div>
+            <div class="r-row"><span>حالة السداد:</span> <strong id="invModalPayStatus">--</strong></div>
+            <div class="receipt-divider">--------------------------------</div>
+          </div>
+
+          <!-- جدول الأصناف والكميات المباعة في الفاتورة -->
+          <table class="receipt-items-table">
+            <thead>
+              <tr>
+                <th style="text-align: right;">المنتج</th>
+                <th style="text-align: center;">الكمية</th>
+                <th style="text-align: center;">السعر</th>
+                <th style="text-align: left;">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody id="invModalItemsBody"></tbody>
+          </table>
+
+          <div class="receipt-divider">================================</div>
+          <div class="receipt-total-box">
+            <div class="r-row total-row">
+              <span>إجمالي الفاتورة:</span>
+              <strong id="invModalGrandTotal">0.00 جنيه</strong>
+            </div>
+            <div class="r-row" style="color: var(--success-color); font-weight: 800; font-size: 0.95rem; margin-top: 4px;">
+              <span>المبلغ المدفوع:</span>
+              <strong id="invModalPaid">0.00 جنيه</strong>
+            </div>
+            <div class="r-row" style="color: var(--danger-color); font-weight: 800; font-size: 0.95rem; margin-top: 4px;" id="invModalRemainingRow">
+              <span>المبلغ المتبقي:</span>
+              <strong id="invModalRemaining">0.00 جنيه</strong>
+            </div>
+          </div>
+          <div class="receipt-divider">================================</div>
+
+          <!-- سجل الدفعات السابقة المسددة على الفاتورة -->
+          <div id="invModalPaymentsSection" style="display: none; margin-top: 8px;">
+            <p style="font-weight: 800; font-size: 0.82rem; margin-bottom: 4px;">سجل الدفعات المسددة:</p>
+            <div id="invModalPaymentsList"></div>
+            <div class="receipt-divider">--------------------------------</div>
+          </div>
+
+          <div class="receipt-footer">
+            <p id="invModalNotes" style="font-size: 0.8rem; margin-bottom: 4px;"></p>
+            <p>شكراً لتعاملكم مع Princess Store</p>
+            <small>بضاعة مباعة لا ترد وتستبدل خلال المدة القانونية</small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="modalInvoiceDetails">إغلاق</button>
+        <button type="button" class="btn btn-success" id="invModalAddPayBtn" style="display: none;">
+          + إضافة دفعة
+        </button>
+        <button type="button" class="btn btn-primary" id="doPrintCustomerInvoiceBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          طباعة الفاتورة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- مودال تسجيل دفعة جديدة على فاتورة مبيعات -->
+  <div class="modal" id="modalAddInvoicePayment">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>تسجيل دفعة على الفاتورة</h3>
+        <button class="close-modal-btn" data-close="modalAddInvoicePayment">&times;</button>
+      </div>
+      <form id="addInvoicePaymentForm">
+        <input type="hidden" id="payInvoiceId">
+        <div class="modal-body">
+          <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-weight: 800; font-size: 1.05rem;" id="invoicePayCustomerDisplay">--</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;" id="invoicePayNumberDisplay">--</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span>المتبقي على هذه الفاتورة:</span>
+              <strong id="invoicePayCurrentRemaining" style="color: var(--danger-color); font-size: 1.15rem;">0.00 جنيه</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="required-lbl">مبلغ الدفعة الجديدة (جنيه):</label>
+            <input type="number" id="invoicePayAmountInput" class="form-control" placeholder="0.00" step="any" min="0.01" required autofocus>
+          </div>
+
+          <div class="form-group">
+            <label class="required-lbl">تاريخ الدفعة:</label>
+            <input type="date" id="invoicePayDateInput" class="form-control" required>
+          </div>
+
+          <!-- المعاينة اللحظية للمتبقي بعد الدفعة -->
+          <div style="background: var(--success-light); color: var(--success-color); border: 1px dashed var(--success-color); padding: 10px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span>المتبقي بعد الدفعة:</span>
+            <strong id="invoicePayRemainingAfter" style="font-size: 1.15rem;">0.00 جنيه</strong>
+          </div>
+
+          <div class="form-group">
+            <label>ملاحظات الدفعة (اختياري):</label>
+            <input type="text" id="invoicePayNoteInput" class="form-control" placeholder="مثال: نقداً، تحويل محفظة...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalAddInvoicePayment">إلغاء</button>
+          <button type="submit" class="btn btn-success" id="saveInvoicePaySubmitBtn">تأكيد سداد الدفعة</button>
+        </div>
+      </form>
     </div>
   </div>
 

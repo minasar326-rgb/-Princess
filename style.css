@@ -367,6 +367,45 @@ body {
 .card-debt-settled .card-val { color: var(--primary-color); }
 .icon-debt-settled { background: var(--primary-light); color: var(--primary-color); }
 
+/* كروت تقييم المخزون ورأس المال */
+.card-cost-val { border-right: 5px solid var(--primary-color); }
+.card-cost-val .card-val { color: var(--primary-color); }
+.icon-cost-val { background: var(--primary-light); color: var(--primary-color); }
+
+.card-retail-val { border-right: 5px solid var(--purple-color); }
+.card-retail-val .card-val { color: var(--purple-color); }
+.icon-retail-val { background: var(--purple-light); color: var(--purple-color); }
+
+.card-profit-val { border-right: 5px solid var(--success-color); }
+.card-profit-val .card-val { color: var(--success-color); }
+.icon-profit-val { background: var(--success-light); color: var(--success-color); }
+
+.card-pieces-val { border-right: 5px solid var(--warning-color); }
+.card-pieces-val .card-val { color: var(--warning-color); }
+.icon-pieces-val { background: var(--warning-light); color: var(--warning-color); }
+
+.inventory-table-footer-summary {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.inv-footer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .sub-label {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -611,7 +650,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 105px;
+  min-height: 125px;
   position: relative;
 }
 
@@ -1109,7 +1148,7 @@ body {
 
 .toast-notification.show { opacity: 1; transform: translateY(0); }
 
-/* طباعة الفاتورة اليومية الموحدة */
+/* طباعة الفاتورة اليومية الموحدة وفاتورة العميل */
 @media print {
   body * { visibility: hidden; }
 
@@ -1119,6 +1158,18 @@ body {
   }
 
   body.printing-daily-master #dailyMasterPrintContent {
+    position: absolute;
+    left: 0; top: 0;
+    width: 80mm;
+    box-shadow: none; border: none; padding: 0; margin: 0;
+  }
+
+  body.printing-customer-invoice #customerInvoicePrintContent,
+  body.printing-customer-invoice #customerInvoicePrintContent * {
+    visibility: visible;
+  }
+
+  body.printing-customer-invoice #customerInvoicePrintContent {
     position: absolute;
     left: 0; top: 0;
     width: 80mm;
